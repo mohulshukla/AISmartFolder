@@ -1,31 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Union, Literal
-import base64
+from src.llms import LLM
 from openai import OpenAI
+from typing import List, Tuple, Literal, Optional, Union
 import os
-
-
-class LLM(ABC):
-    """
-    Abstract base class representing a Large Language Model (LLM).
-    """
-
-    @abstractmethod
-    def generate(
-        self, messages: List[Tuple[str, str]], image: Optional[Union[str, bytes]] = None
-    ) -> str:
-        """
-        Generate a response based on the input messages and optional image.
-
-        Args:
-            messages: List of tuples containing (role, content) pairs.
-                     Example: [("user", "Hello"), ("assistant", "Hi there"), ("user", "How are you?")]
-            image: Optional image input, can be either a file path (str) or raw bytes
-
-        Returns:
-            str: The model's response
-        """
-        pass
+import base64
 
 
 class OpenAILLM(LLM):
@@ -94,12 +71,11 @@ class OpenAILLM(LLM):
             else:
                 formatted_messages.append({"role": role, "content": content})
 
-        # Use vision model if image is provided
-        if image:
-            self.model = "gpt-4-vision-preview"
-
         response = self.client.chat.completions.create(
             model=self.model, messages=formatted_messages, max_tokens=2000
         )
 
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError("Received empty response from OpenAI API")
+        return content

@@ -1,0 +1,5 @@
+---
+description: installing packages
+globs: 
+---
+Always use uv instead of pip to install packages. don't modify [pyproject.toml](mdc:pyproject.toml) directly. use uv add rather than uv pip
