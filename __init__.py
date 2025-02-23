@@ -1,0 +1,3 @@
+"""
+AISmartFolder package initialization.
+"""
