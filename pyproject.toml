@@ -5,6 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "llama-stack-client>=0.2.2",
+    "macos-notifications>=0.2.1",
+    "mistralai>=1.7.0",
     "openai>=1.64.0",
     "pillow>=11.1.0",
     "python-dotenv>=1.0.1",

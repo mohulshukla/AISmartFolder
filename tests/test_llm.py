@@ -1,13 +1,13 @@
 import pytest
 from src.llms.openaillm import OpenAILLM
-from src.llms.llama import LlamaLLM
+from src.llms.llamastack import LlamaStackLLM
 import os
 
 
 @pytest.fixture
 def llm():
     """Fixture to create an OpenAI LLM instance."""
-    return LlamaLLM()
+    return LlamaStackLLM()
 
 
 def test_openai_llm_basic_response(llm):

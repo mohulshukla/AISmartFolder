@@ -270,6 +270,7 @@ Topic: Project Updates"""
 
         event = type("Event", (), {"is_directory": False, "src_path": str(file_path)})()
         handler.on_created(event)
+        print("lol")
 
     # Verify files were renamed uniquely
     doc_files = list((temp_dir / "meeting_notes").glob("*dev*.txt"))

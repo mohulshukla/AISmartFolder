@@ -2,5 +2,16 @@
   "python.analysis.typeCheckingMode": "basic",
   "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "python.languageServer": "Pylance",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingModuleSource": "none",
+    "reportShadowedImports": "none"
+  },
+  "python.analysis.extraPaths": [
+    "",
+    "/Users/ayush/.cursor/extensions/joedevivo.vscode-circuitpython-0.2.0-darwin-arm64/stubs",
+    "/Users/ayush/Library/Application Support/Cursor/User/globalStorage/joedevivo.vscode-circuitpython/bundle/20250415/adafruit-circuitpython-bundle-py-20250415/lib"
+  ],
+  "circuitpython.board.version": null
 }

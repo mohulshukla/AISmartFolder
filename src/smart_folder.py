@@ -7,13 +7,18 @@ from src.llms import LLM
 from PIL import Image
 import mimetypes
 from pathlib import Path
-from typing import Literal, List, Tuple
+from typing import Literal, List, Tuple, Optional
+import base64
+from mistralai import Mistral
+import tempfile
+from src.notifications import send_notification
 
 
 class SmartFolderHandler(FileSystemEventHandler):
     def __init__(self, folder_path: str, llm: LLM):
         self.folder_path = folder_path
         self.llm = llm
+        self.mistral_client = Mistral(api_key=os.environ.get("MISTRAL_API_KEY"))
 
     def get_subfolders(self) -> List[str]:
         """Get list of subfolders in the watched directory."""
@@ -31,10 +36,64 @@ class SmartFolderHandler(FileSystemEventHandler):
         except:
             return False
 
+    def is_pdf_file(self, file_path: str) -> bool:
+        """Check if a file is a PDF."""
+        try:
+            mime_type, _ = mimetypes.guess_type(file_path)
+            return mime_type == "application/pdf"
+        except:
+            return False
+
+    def extract_pdf_text(self, file_path: str) -> str:
+        """Extract text from a PDF file using Mistral's OCR."""
+        try:
+            # Upload the PDF file
+            with open(file_path, "rb") as f:
+                uploaded_pdf = self.mistral_client.files.upload(
+                    file={
+                        "file_name": os.path.basename(file_path),
+                        "content": f,
+                    },
+                    purpose="ocr",
+                )
+
+            # Get signed URL
+            signed_url = self.mistral_client.files.get_signed_url(
+                file_id=uploaded_pdf.id
+            )
+
+            # Get OCR results
+            ocr_response = self.mistral_client.ocr.process(
+                model="mistral-ocr-latest",
+                document={
+                    "type": "document_url",
+                    "document_url": signed_url.url,
+                },
+            )
+
+            # Clean up the uploaded file
+            self.mistral_client.files.delete(file_id=uploaded_pdf.id)
+
+            # Extract text from OCR response
+            # The response contains pages with markdown content
+            text_content = []
+            for page in ocr_response.pages:
+                if page.markdown:
+                    text_content.append(page.markdown)
+
+            return "\n\n".join(text_content)
+        except Exception as e:
+            print(f"Error extracting PDF text: {str(e)}")
+            return ""
+
     def get_file_content(self, file_path: str) -> tuple[str, bytes]:
+        """Get the content of a file."""
         if self.is_image_file(file_path):
             with open(file_path, "rb") as f:
                 return "image", f.read()
+        elif self.is_pdf_file(file_path):
+            text = self.extract_pdf_text(file_path)
+            return "text", text.encode("utf-8")
         else:
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
@@ -58,14 +117,12 @@ class SmartFolderHandler(FileSystemEventHandler):
                 "system",
                 "You are an AI assistant that helps organize files. Given a file's content and a list of existing folders, "
                 "suggest which folder would be the best semantic match for this file. Structure your response with XML tags: "
-                "<thinking> for your analysis and <answer> for the final folder name. Available folders: "
+                "<thinking> for your analysis and <answer> for the final folder name. You must choose from the following folders: "
                 + ", ".join(subfolders)
                 + "\n\n"
-                "Example responses:\n"
-                "1. <thinking>This appears to be a Python script with machine learning code, using TensorFlow and neural networks</thinking>\n"
-                "<answer>ml_projects</answer>\n\n"
-                "2. <thinking>This is an invoice PDF containing financial transaction details and payment information</thinking>\n"
-                "<answer>financial_docs</answer>\n\n",
+                "Example response:\n"
+                "<thinking>This appears to be a Python script with machine learning code, using TensorFlow and neural networks</thinking>\n"
+                "<answer>ml_projects</answer>\n\n",
             ),
             (
                 "user",
@@ -233,8 +290,15 @@ class SmartFolderHandler(FileSystemEventHandler):
             # Move the file
             if target_dir != os.path.dirname(file_path):
                 shutil.move(str(file_path), new_path)
-                print(
-                    f"Moved {file_name} to {os.path.relpath(new_path, self.folder_path)}"
+                relative_path = os.path.relpath(new_path, self.folder_path)
+                print(f"Moved {file_name} to {relative_path}")
+
+                # Show notification for moved file
+                send_notification(
+                    title="📁 File Organized",
+                    message=f"Successfully organized {file_name}",
+                    subtitle=f"Moved to {suggested_folder}",
+                    sound=True,
                 )
             else:
                 # If staying in same directory, only rename if name changed
@@ -242,8 +306,23 @@ class SmartFolderHandler(FileSystemEventHandler):
                     shutil.move(str(file_path), new_path)
                     print(f"Renamed {file_name} to {new_name}")
 
+                    # Show notification for renamed file
+                    send_notification(
+                        title="✏️ File Renamed",
+                        message=f"Old name: {file_name}",
+                        subtitle=f"New name: {new_name}",
+                        sound=True,
+                    )
+
         except Exception as e:
             print(f"Error processing {file_path}: {str(e)}")
+            # Show error notification
+            send_notification(
+                title="❌ Error Processing File",
+                message=f"Could not process {file_name}",
+                subtitle=str(e),
+                sound=True,
+            )
 
 
 def start_smart_folder(folder_path: str, llm: LLM):
